@@ -1,0 +1,32 @@
+{
+  "name": "spazigo-backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^4.18.2", 
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^8.0.1",
+    "firebase-admin": "^13.4.0",
+    "helmet": "^8.1.0",
+    "hpp": "^0.2.3",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.18.0",
+    "mongoose": "^8.16.5",
+    "morgan": "^1.10.1",
+    "multer": "^2.0.2",
+    "pg": "^8.16.3",
+    "razorpay": "^2.9.6",
+    "uuid": "^11.1.0",
+    "xss-clean": "^0.1.4"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "453488761295",
+    "project_id": "spazigo-95665",
+    "storage_bucket": "spazigo-95665.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:453488761295:android:d6c7a9c472de083f99daba",
+        "android_client_info": {
+          "package_name": "com.example.spazigo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDr8SzCs4iE-WkaLLZnozufLuUN1_am3UY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
