@@ -15,30 +15,26 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isPasswordVisible = false;
 
   void _login() async {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final success = await authProvider.login(
-        _emailController.text,
-        _passwordController.text,
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
       );
 
+      if (!mounted) return;
+
       if (success) {
-        if (authProvider.currentUser?.status == 'pending') {
-          context.go('/await-approval');
-        } else if (authProvider.currentUser?.status == 'rejected') {
-          context.go('/access-denied', extra: authProvider.currentUser?.rejectionReason);
-        } else if (authProvider.currentUser?.status == 'verified') {
-          if (authProvider.currentUser?.role == 'lsp') {
-            context.go('/lsp-dashboard');
-          } else if (authProvider.currentUser?.role == 'msme') {
-            context.go('/msme-home');
-          }
-        }
+        context.go('/');
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(authProvider.errorMessage ?? 'Login failed')),
+          SnackBar(
+            content: Text(authProvider.errorMessage ?? 'Login failed. Please check your credentials.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     }
@@ -64,13 +60,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 8),
+                Text(
+                  'Sign in to continue',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 40),
                 CustomTextField(
                   controller: _emailController,
                   labelText: 'Email',
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
+                    if (value == null || value.trim().isEmpty) {
                       return 'Please enter your email';
                     }
                     if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
@@ -83,13 +84,23 @@ class _LoginScreenState extends State<LoginScreen> {
                 CustomTextField(
                   controller: _passwordController,
                   labelText: 'Password',
-                  obscureText: true,
+                  obscureText: !_isPasswordVisible,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your password';
                     }
                     return null;
                   },
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      });
+                    },
+                  ),
                 ),
                 const SizedBox(height: 30),
                 Consumer<AuthProvider>(
@@ -99,7 +110,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: ElevatedButton(
                         onPressed: authProvider.isLoading ? null : _login,
                         child: authProvider.isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
                             : const Text('Login'),
                       ),
                     );

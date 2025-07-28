@@ -8,21 +8,15 @@ const xss = require('xss-clean');
 const hpp = require('hpp');
 const mongoSanitize = require('express-mongo-sanitize');
 
-// Load environment variables
-dotenv.config({ path: './.env' });
+dotenv.config({ path: './server/.env' });
 
-// Database Connections
-const pgPool = require('./utils/db'); // PostgreSQL
-const connectMongoDB = require('./utils/mongoDb'); // MongoDB
-
-// Firebase Admin SDK Initialization
+const pgPool = require('./utils/db');
+const connectMongoDB = require('./utils/mongoDb');
+const { createPgTables } = require('./utils/dbSetup');
 const { initFirebaseAdmin } = require('./utils/firebaseAdmin');
-
-// Error Handling Utilities
 const AppError = require('./utils/appError');
-const globalErrorHandler = require('./controllers/errorController'); // We'll create this simple one
+const globalErrorHandler = require('./controllers/errorController');
 
-// Route Imports
 const authRoutes = require('./routes/authRoutes');
 const containerRoutes = require('./routes/containerRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
@@ -32,57 +26,59 @@ const chatRoutes = require('./routes/chatRoutes');
 
 const app = express();
 
-// Initialize Database Connections
-pgPool.connect()
-  .then(() => console.log('PostgreSQL connected successfully!'))
-  .catch(err => console.error('PostgreSQL connection error:', err));
+// --- Database & Services Initialization ---
+(async () => {
+    try {
+        await pgPool.connect();
+        console.log('PostgreSQL connected successfully!');
+        await createPgTables();
+        connectMongoDB();
+        initFirebaseAdmin();
+    } catch (err) {
+        console.error('Initialization failed:', err);
+        process.exit(1);
+    }
+})();
 
-connectMongoDB(); // Connect to MongoDB
 
-initFirebaseAdmin(); // Initialize Firebase Admin SDK
+// --- Global Middlewares ---
 
-// 1) GLOBAL MIDDLEWARES
 // Set security HTTP headers
 app.use(helmet());
 
+// Enable CORS for all routes
+app.use(cors());
+app.options('*', cors()); // Enable pre-flight for all routes
+
 // Development logging
 if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
+    app.use(morgan('dev'));
 }
 
 // Limit requests from same API to prevent brute-force attacks
 const limiter = rateLimit({
-  max: 100, // Max 100 requests per hour
-  windowMs: 60 * 60 * 1000, // 1 hour
-  message: 'Too many requests from this IP, please try again in an hour!'
+    max: 200, // Allow more requests per window
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    message: 'Too many requests from this IP, please try again in 15 minutes!'
 });
-app.use('/api', limiter); // Apply to all API routes
+app.use('/api', limiter);
 
-// Body parser, reading data from body into req.body
-app.use(express.json({ limit: '10kb' })); // Limit JSON payload size
-app.use(express.urlencoded({ extended: true, limit: '10kb' })); // For URL-encoded data
+// Body parser, reading data from body into req.body. Increased limit for base64 uploads.
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
-// Data sanitization against NoSQL query injection
-app.use(mongoSanitize()); // Prevents malicious MongoDB queries
 
-// Data sanitization against XSS attacks
-app.use(xss()); // Cleans user input from malicious HTML/JS code
+// Data sanitization
+app.use(mongoSanitize()); // Against NoSQL query injection
+app.use(xss()); // Against XSS attacks
 
-// Prevent parameter pollution (e.g., ?sort=price&sort=duration)
+// Prevent parameter pollution
 app.use(hpp({
-  whitelist: [
-    // Add specific query parameters that are allowed to be duplicated
-    // For example, if you allow multiple categories in a filter: 'category'
-  ]
+    whitelist: [] // Add whitelisted parameters here if needed
 }));
 
-// Enable CORS for all routes (adjust for production to specific origins)
-app.use(cors());
 
-// Serve static files if needed (e.g., uploaded documents for testing, but not for production)
-// app.use(express.static(`${__dirname}/public`));
-
-// 2) ROUTES
+// --- API Routes ---
 app.use('/api/auth', authRoutes);
 app.use('/api/containers', containerRoutes);
 app.use('/api/bookings', bookingRoutes);
@@ -90,32 +86,37 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat', chatRoutes);
 
-// Handle unhandled routes (404 Not Found)
-app.all('*', (req, res, next) => {
-  next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
+// --- Health Check Route ---
+app.get('/', (req, res) => {
+    res.status(200).json({ status: 'success', message: 'Spazigo API is running.' });
 });
 
-// Global Error Handling Middleware
+
+// --- Error Handling ---
+app.all('*', (req, res, next) => {
+    next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
+});
+
 app.use(globalErrorHandler);
 
-const PORT = process.env.PORT || 3000;
+
+// --- Start Server ---
+const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
 
-// Handle unhandled promise rejections (e.g., DB connection errors outside Express)
+// Graceful shutdown
 process.on('unhandledRejection', err => {
-  console.log('UNHANDLED REJECTION! 💥 Shutting down...');
-  console.error(err.name, err.message, err.stack);
-  server.close(() => {
-    process.exit(1); // Exit with a failure code
-  });
+    console.error('UNHANDLED REJECTION! 💥 Shutting down...', err);
+    server.close(() => {
+        process.exit(1);
+    });
 });
 
-// Handle SIGTERM (e.g., Heroku sending SIGTERM to shut down app gracefully)
 process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM RECEIVED. Shutting down gracefully...');
-  server.close(() => {
-    console.log('Process terminated!');
-  });
+    console.log('👋 SIGTERM RECEIVED. Shutting down gracefully.');
+    server.close(() => {
+        console.log('Process terminated!');
+    });
 });

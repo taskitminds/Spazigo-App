@@ -1,7 +1,5 @@
-// Filename: lib/screens/auth/msme_registration_form_screen.dart
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,22 +11,21 @@ class MsmeRegistrationFormScreen extends StatefulWidget {
   const MsmeRegistrationFormScreen({super.key});
 
   @override
-  State<MsmeRegistrationFormScreen> createState() => _MsmeRegistrationFormScreenState();
+  State<MsmeRegistrationFormScreen> createState() =>
+      _MsmeRegistrationFormScreenState();
 }
 
-class _MsmeRegistrationFormScreenState extends State<MsmeRegistrationFormScreen> {
+class _MsmeRegistrationFormScreenState
+    extends State<MsmeRegistrationFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _businessNameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _gstinController = TextEditingController();
-  final TextEditingController _productTypeController = TextEditingController();
-  final TextEditingController _warehouseAddressController = TextEditingController();
 
   File? _selectedDocument;
   String? _documentFileName;
-  String? _documentMimeType; // Added to store actual MIME type
+  String? _documentMimeType;
 
   Future<void> _pickDocument() async {
     final picker = ImagePicker();
@@ -38,46 +35,56 @@ class _MsmeRegistrationFormScreenState extends State<MsmeRegistrationFormScreen>
       setState(() {
         _selectedDocument = File(pickedFile.path);
         _documentFileName = pickedFile.name;
-        _documentMimeType = pickedFile.mimeType; // Use the actual MIME type from XFile
+        _documentMimeType = pickedFile.mimeType ?? 'application/octet-stream';
       });
     }
   }
 
   void _registerMSME() async {
-    if (_formKey.currentState!.validate() && _selectedDocument != null) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (_formKey.currentState!.validate()) {
+      if (_selectedDocument == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please upload a legal document.')),
+        );
+        return;
+      }
+
+      final authProvider = Provider.of(context, listen: false);
 
       try {
-        List<int> imageBytes = await _selectedDocument!.readAsBytes();
-        String base64Image = base64Encode(imageBytes);
+        final imageBytes = await _selectedDocument!.readAsBytes();
+        final base64Image = base64Encode(imageBytes);
 
-        await authProvider.register(
-          email: _emailController.text,
-          password: _passwordController.text,
+        final success = await authProvider.register(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
           role: 'msme',
-          company: _businessNameController.text, // Using business name as company
-          phone: _phoneController.text,
+          company: _businessNameController.text.trim(),
+          phone: _phoneController.text.trim(),
           base64Document: base64Image,
           documentFileName: _documentFileName!,
-          documentMimeType: _documentMimeType ?? 'application/octet-stream', // Use the stored MIME type, with fallback
+          documentMimeType: _documentMimeType!,
         );
 
-        if (authProvider.currentUser != null) {
+        if (mounted && success) {
           context.go('/await-approval');
-        } else {
+        } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(authProvider.errorMessage ?? 'Registration failed.')),
+            SnackBar(
+                content: Text(authProvider.errorMessage ??
+                    'Registration failed. Please try again.'),
+                backgroundColor: Theme.of(context).colorScheme.error),
           );
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to read document: $e')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: const Text('Failed to process document. Please try again.'),
+                backgroundColor: Theme.of(context).colorScheme.error),
+          );
+        }
       }
-    } else if (_selectedDocument == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please upload a legal document.')),
-      );
     }
   }
 
@@ -87,96 +94,89 @@ class _MsmeRegistrationFormScreenState extends State<MsmeRegistrationFormScreen>
       appBar: AppBar(
         title: const Text('Register as MSME'),
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                CustomTextField(
-                  controller: _emailController,
-                  labelText: 'Email',
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) => value!.isEmpty ? 'Enter email' : null,
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _passwordController,
-                  labelText: 'Password',
-                  obscureText: true,
-                  validator: (value) => value!.length < 6 ? 'Password too short' : null,
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _businessNameController,
-                  labelText: 'Business Name',
-                  validator: (value) => value!.isEmpty ? 'Enter business name' : null,
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _phoneController,
-                  labelText: 'Phone Number',
-                  keyboardType: TextInputType.phone,
-                  validator: (value) => value!.isEmpty ? 'Enter phone number' : null,
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _gstinController,
-                  labelText: 'GSTIN',
-                  validator: (value) => value!.isEmpty ? 'Enter GSTIN' : null,
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _productTypeController,
-                  labelText: 'Product Type (e.g., Electronics, Textiles)',
-                ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  controller: _warehouseAddressController,
-                  labelText: 'Warehouse Address',
-                  //maxLines: 3,
-                ),
-                const SizedBox(height: 24),
-                _selectedDocument == null
-                    ? ElevatedButton.icon(
-                  onPressed: _pickDocument,
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('Upload Legal Document'),
-                )
-                    : Column(
-                  children: [
-                    Text('Document Selected: ${_documentFileName!}'),
-                    TextButton(
-                      onPressed: _pickDocument,
-                      child: const Text('Change Document'),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              CustomTextField(
+                controller: _emailController,
+                labelText: 'Email',
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) return 'Enter email';
+                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) return 'Enter a valid email';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              CustomTextField(
+                controller: _passwordController,
+                labelText: 'Password',
+                obscureText: true,
+                validator: (value) => value == null || value.length < 6 ? 'Password must be at least 6 characters' : null,
+              ),
+              const SizedBox(height: 16),
+              CustomTextField(
+                controller: _businessNameController,
+                labelText: 'Business Name',
+                validator: (value) => value == null || value.trim().isEmpty ? 'Enter business name' : null,
+              ),
+              const SizedBox(height: 16),
+              CustomTextField(
+                controller: _phoneController,
+                labelText: 'Phone Number',
+                keyboardType: TextInputType.phone,
+                validator: (value) => value == null || value.trim().isEmpty ? 'Enter phone number' : null,
+              ),
+              const SizedBox(height: 24),
+              _buildDocumentPicker(),
+              const SizedBox(height: 30),
+              Consumer<AuthProvider>(
+                builder: (context, authProvider, child) {
+                  return SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: authProvider.isLoading ? null : _registerMSME,
+                      child: authProvider.isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Create Account'),
                     ),
-                    if (_selectedDocument!.path.toLowerCase().endsWith('.jpg') ||
-                        _selectedDocument!.path.toLowerCase().endsWith('.jpeg') ||
-                        _selectedDocument!.path.toLowerCase().endsWith('.png'))
-                      Image.file(_selectedDocument!, height: 100, width: 100),
-                  ],
-                ),
-                const SizedBox(height: 30),
-                Consumer<AuthProvider>(
-                  builder: (context, authProvider, child) {
-                    return SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: authProvider.isLoading ? null : _registerMSME,
-                        child: authProvider.isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text('Register MSME Account'),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+                  );
+                },
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildDocumentPicker() {
+    if (_selectedDocument == null) {
+      return OutlinedButton.icon(
+        onPressed: _pickDocument,
+        icon: const Icon(Icons.upload_file),
+        label: const Text('Upload Business Document'),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 50),
+          side: BorderSide(color: Theme.of(context).primaryColor),
+        ),
+      );
+    } else {
+      return Column(
+        children: [
+          Text('Document: ${_documentFileName!}'),
+          const SizedBox(height: 8),
+          Image.file(_selectedDocument!, height: 100, width: 100, fit: BoxFit.cover),
+          TextButton(
+            onPressed: _pickDocument,
+            child: const Text('Change Document'),
+          ),
+        ],
+      );
+    }
   }
 
   @override
@@ -185,9 +185,6 @@ class _MsmeRegistrationFormScreenState extends State<MsmeRegistrationFormScreen>
     _passwordController.dispose();
     _businessNameController.dispose();
     _phoneController.dispose();
-    _gstinController.dispose();
-    _productTypeController.dispose();
-    _warehouseAddressController.dispose();
     super.dispose();
   }
 }

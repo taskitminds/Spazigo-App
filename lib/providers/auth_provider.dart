@@ -4,12 +4,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:spazigo/constants.dart';
 import 'package:spazigo/models/user.dart';
 import 'package:spazigo/services/api_service.dart';
-import 'package:spazigo/services/firebase_messaging_service.dart'; // For FCM token
+import 'package:spazigo/services/firebase_messaging_service.dart';
 
 class AuthProvider with ChangeNotifier {
   User? _currentUser;
   String? _jwtToken;
-  bool _isLoading = false;
+  bool _isLoading = true; // Start as true to handle initial load
   String? _errorMessage;
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
@@ -18,30 +18,28 @@ class AuthProvider with ChangeNotifier {
   bool get isAuthenticated => _currentUser != null && _jwtToken != null;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  String? get jwtToken => _jwtToken;
 
   AuthProvider() {
-    loadAuthData(); // Load auth data on provider initialization
+    loadAuthData();
   }
 
   Future<void> loadAuthData() async {
     _isLoading = true;
     notifyListeners();
-    try {
-      await ApiService.init(); // Initialize ApiService to load token
-      _jwtToken = ApiService.token;
 
-      if (_jwtToken != null) {
-        final userDataString = await _secureStorage.read(key: AppConstants.currentUserKey);
-        if (userDataString != null) {
-          _currentUser = User.fromJson(json.decode(userDataString));
-        }
+    try {
+      final token = await _secureStorage.read(key: AppConstants.jwtTokenKey);
+      final userDataString = await _secureStorage.read(key: AppConstants.currentUserKey);
+
+      if (token != null && userDataString != null) {
+        _jwtToken = token;
+        _currentUser = User.fromJson(json.decode(userDataString));
+        ApiService.setToken(token);
+      } else {
+        await _clearAuthData();
       }
     } catch (e) {
-      debugPrint('Error loading auth data: $e');
-      _errorMessage = 'Failed to load session.';
-      _currentUser = null;
-      _jwtToken = null;
+      await _clearAuthData();
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -53,10 +51,18 @@ class AuthProvider with ChangeNotifier {
     _currentUser = user;
     await _secureStorage.write(key: AppConstants.jwtTokenKey, value: token);
     await _secureStorage.write(key: AppConstants.currentUserKey, value: json.encode(user.toJson()));
+    ApiService.setToken(token);
     notifyListeners();
   }
 
-  Future<void> register({
+  Future<void> _clearAuthData() async {
+    _jwtToken = null;
+    _currentUser = null;
+    await _secureStorage.deleteAll();
+    ApiService.setToken(null);
+  }
+
+  Future<bool> register({
     required String email,
     required String password,
     required String role,
@@ -83,13 +89,15 @@ class AuthProvider with ChangeNotifier {
         documentMimeType: documentMimeType,
         fcmToken: fcmToken,
       );
-      // Registration successful, but no login yet (awaiting admin approval)
-      _currentUser = user; // Set current user to pending state
+      _currentUser = user;
       notifyListeners();
+      return true;
     } on ApiException catch (e) {
       _errorMessage = e.message;
+      return false;
     } catch (e) {
-      _errorMessage = 'Registration failed: $e';
+      _errorMessage = 'An unexpected error occurred during registration.';
+      return false;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -103,22 +111,18 @@ class AuthProvider with ChangeNotifier {
 
     try {
       final fcmToken = await FirebaseMessagingService.getToken();
-      final user = await ApiService.login(email, password, fcmToken: fcmToken);
-      await _saveAuthData(ApiService.token!, user); // Save token and user data
+      final response = await ApiService.login(email, password, fcmToken: fcmToken);
+      await _saveAuthData(response['token'], response['user']);
       return true;
     } on ApiException catch (e) {
       _errorMessage = e.message;
-      _currentUser = null;
-      _jwtToken = null;
-      await ApiService.deleteToken(); // Clear token on failed login
-      await _secureStorage.delete(key: AppConstants.currentUserKey);
+      await _clearAuthData();
+      notifyListeners();
       return false;
     } catch (e) {
-      _errorMessage = 'Login failed: $e';
-      _currentUser = null;
-      _jwtToken = null;
-      await ApiService.deleteToken(); // Clear token on failed login
-      await _secureStorage.delete(key: AppConstants.currentUserKey);
+      _errorMessage = 'An unexpected error occurred during login.';
+      await _clearAuthData();
+      notifyListeners();
       return false;
     } finally {
       _isLoading = false;
@@ -129,27 +133,17 @@ class AuthProvider with ChangeNotifier {
   Future<void> logout() async {
     _isLoading = true;
     notifyListeners();
-    try {
-      await ApiService.deleteToken();
-      _currentUser = null;
-      _jwtToken = null;
-      await _secureStorage.delete(key: AppConstants.currentUserKey);
-    } catch (e) {
-      _errorMessage = 'Logout failed: $e';
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+    await _clearAuthData();
+    _isLoading = false;
+    notifyListeners();
   }
 
-  // Method to update user status after admin approval/rejection (e.g., via FCM)
   void updateUserStatus(String userId, String newStatus, {String? rejectionReason}) {
     if (_currentUser != null && _currentUser!.id == userId) {
       _currentUser = _currentUser!.copyWith(
         status: newStatus,
         rejectionReason: rejectionReason,
       );
-      // Also update in secure storage
       _secureStorage.write(key: AppConstants.currentUserKey, value: json.encode(_currentUser!.toJson()));
       notifyListeners();
     }

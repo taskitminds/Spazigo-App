@@ -1,19 +1,19 @@
 class AppConstants {
-  // Backend Base URL
-  // Use your local IP for Android emulator/physical device if running Node.js locally
-  // e.g., 'http://192.168.1.5:5000/api'
-  static const String baseUrl = 'http://localhost:5000/api'; // For iOS simulator/web
+  // Backend Base URL - Use your actual IP when testing on a real device
+  static const String baseUrl = 'http://localhost:5000/api'; // For Android Emulator
+  // static const String baseUrl = 'http://localhost:5000/api'; // For iOS Simulator/Web
+  // static const String baseUrl = 'http://YOUR_LOCAL_IP:5000/api'; // For Physical Device
 
   // Secure Storage Keys
   static const String jwtTokenKey = 'jwt_token';
   static const String currentUserKey = 'current_user';
   static const String themeModeKey = 'theme_mode';
 
-  // Razorpay Keys (replace with your test/live keys)
+  // Razorpay Keys (replace with your actual TEST keys)
   static const String razorpayKeyId = 'rzp_test_YOUR_RAZORPAY_KEY_ID';
-  // Note: Key Secret is only for backend, not for frontend.
+  // Note: Key Secret is only for backend.
 
-  // FCM Topics (if you use them for broad notifications)
+  // FCM Topics
   static const String lspTopic = 'lsp_notifications';
   static const String msmeTopic = 'msme_notifications';
 }

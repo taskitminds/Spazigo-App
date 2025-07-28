@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Message {
-  final String id; // Firestore doc ID
+  final String id;
   final String senderId;
   final String receiverId;
   final String message;
-  final String? containerId; // Optional for general chat
+  final String? containerId;
   final DateTime timestamp;
 
   Message({
@@ -17,8 +17,9 @@ class Message {
     required this.timestamp,
   });
 
+  // Factory for Firestore data
   factory Message.fromFirestore(DocumentSnapshot doc) {
-    Map data = doc.data() as Map<String, dynamic>;
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     return Message(
       id: doc.id,
       senderId: data['sender_id'],
@@ -26,6 +27,18 @@ class Message {
       message: data['message'],
       containerId: data['container_id'],
       timestamp: (data['timestamp'] as Timestamp).toDate(),
+    );
+  }
+
+  // Factory for JSON data from PostgreSQL backend
+  factory Message.fromJson(Map<String, dynamic> json) {
+    return Message(
+      id: json['id'],
+      senderId: json['sender_id'],
+      receiverId: json['receiver_id'],
+      message: json['message'],
+      containerId: json['container_id'],
+      timestamp: DateTime.parse(json['timestamp']),
     );
   }
 
