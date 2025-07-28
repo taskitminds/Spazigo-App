@@ -26,13 +26,13 @@ exports.register = catchAsync(async (req, res, next) => {
         role,
         company,
         phone,
-        document,
-        document_file_name,
-        document_mimetype,
+        base64Document,
+        documentFileName,
+        documentMimeType,
         fcm_token
     } = req.body;
 
-    if (!email || !password || !role || !company || !phone || !document || !document_file_name || !document_mimetype) {
+    if (!email || !password || !role || !company || !phone || !base64Document || !documentFileName || !documentMimeType) {
         return next(new AppError('Please provide all required fields including a document.', 400));
     }
 
@@ -56,9 +56,9 @@ exports.register = catchAsync(async (req, res, next) => {
         const newDocument = new Document({
             user_id: newUser.id,
             document_type: 'registration_document',
-            file_name: document_file_name,
-            mimetype: document_mimetype,
-            file_path: document,
+            file_name: documentFileName,
+            mimetype: documentMimeType,
+            file_path: base64Document,
         });
         await newDocument.save();
 

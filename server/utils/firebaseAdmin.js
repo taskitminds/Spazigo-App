@@ -48,7 +48,6 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
 
   try {
     const response = await admin.messaging().send(message);
-    console.log('Successfully sent FCM message:', response);
   } catch (error) {
     console.error('Error sending FCM message:', error);
     if (error.code === 'messaging/registration-token-not-registered') {

@@ -88,10 +88,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         containerId: widget.containerId,
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to send message: $e')),
-      );
-      debugPrint('Error sending message: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send message: $e')),
+        );
+      }
     }
 
     _scrollToBottom();

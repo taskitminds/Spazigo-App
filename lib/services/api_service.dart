@@ -90,7 +90,7 @@ class ApiService {
             'role': role,
             'company': company,
             'phone': phone,
-            'document': base64Document,
+            'base64Document': base64Document,
             'document_file_name': documentFileName,
             'document_mimetype': documentMimeType,
             'fcm_token': fcmToken,

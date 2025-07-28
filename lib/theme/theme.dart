@@ -45,8 +45,10 @@ class AppThemes {
       fillColor: Colors.grey[200],
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
     ),
+    // Ensure the ColorScheme brightness matches the ThemeData brightness
     colorScheme: ColorScheme.fromSwatch(
       primarySwatch: Colors.blue,
+      brightness: Brightness.light, // FIX: Added brightness match
     ).copyWith(secondary: Colors.cyan),
   );
 
@@ -94,8 +96,10 @@ class AppThemes {
       fillColor: Colors.grey[800],
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
     ),
+    // Ensure the ColorScheme brightness matches the ThemeData brightness
     colorScheme: ColorScheme.fromSwatch(
       primarySwatch: Colors.blueGrey,
-    ).copyWith(secondary: Colors.tealAccent),
+      brightness: Brightness.dark, // FIX: Added brightness match
+    ).copyWith(secondary: Colors.tealAccent, surface: Colors.grey[850]),
   );
 }
