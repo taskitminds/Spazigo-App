@@ -1,16 +1,22 @@
 const Razorpay = require('razorpay');
-const AppError = require('./appError'); // Assuming AppError for better error messages
 
-// Ensure keys are loaded from .env
-if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-  console.error('Razorpay API keys are not defined in .env');
-  // In a real app, you might want to exit or throw an error here during startup
-  // throw new AppError('Razorpay API keys are missing', 500);
+let instance;
+
+// Check for keys and initialize Razorpay client only once
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  instance = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+} else {
+  console.error('CRITICAL: Razorpay API keys are not defined in the .env file. Payment routes will fail.');
+  // Create a mock instance to prevent crashing the app on startup
+  // Any calls to this mock will fail gracefully in the controller.
+  instance = {
+    orders: {
+      create: () => Promise.reject(new Error('Razorpay is not configured.')),
+    },
+  };
 }
-
-const instance = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
 
 module.exports = instance;

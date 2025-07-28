@@ -1,5 +1,6 @@
 const express = require('express');
 const dotenv = require('dotenv');
+const path = require('path');
 const morgan = require('morgan');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -8,7 +9,8 @@ const xss = require('xss-clean');
 const hpp = require('hpp');
 const mongoSanitize = require('express-mongo-sanitize');
 
-dotenv.config({ path: './server/.env' });
+// Correctly load environment variables from the root of the 'server' directory
+dotenv.config({ path: path.resolve(__dirname, './.env') });
 
 const pgPool = require('./utils/db');
 const connectMongoDB = require('./utils/mongoDb');
@@ -42,40 +44,27 @@ const app = express();
 
 
 // --- Global Middlewares ---
-
-// Set security HTTP headers
 app.use(helmet());
-
-// Enable CORS for all routes
 app.use(cors());
-app.options('*', cors()); // Enable pre-flight for all routes
+app.options('*', cors());
 
-// Development logging
 if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'));
 }
 
-// Limit requests from same API to prevent brute-force attacks
 const limiter = rateLimit({
-    max: 200, // Allow more requests per window
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 200,
+    windowMs: 15 * 60 * 1000,
     message: 'Too many requests from this IP, please try again in 15 minutes!'
 });
 app.use('/api', limiter);
 
-// Body parser, reading data from body into req.body. Increased limit for base64 uploads.
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
-
-// Data sanitization
-app.use(mongoSanitize()); // Against NoSQL query injection
-app.use(xss()); // Against XSS attacks
-
-// Prevent parameter pollution
-app.use(hpp({
-    whitelist: [] // Add whitelisted parameters here if needed
-}));
+app.use(mongoSanitize());
+app.use(xss());
+app.use(hpp({ whitelist: [] }));
 
 
 // --- API Routes ---
@@ -106,7 +95,6 @@ const server = app.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
 
-// Graceful shutdown
 process.on('unhandledRejection', err => {
     console.error('UNHANDLED REJECTION! 💥 Shutting down...', err);
     server.close(() => {
